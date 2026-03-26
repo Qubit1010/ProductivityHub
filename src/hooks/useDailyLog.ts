@@ -33,7 +33,7 @@ export function useCreateDailyLog() {
 export function useUpdateDailyLog() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; sprintStart?: string; sprintEnd?: string; notes?: string }) =>
+    mutationFn: ({ id, ...data }: { id: string; sprintStart?: string; sprintEnd?: string; notes?: string; sleepHours?: number | null }) =>
       api.dailyLogs.update(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["dailyLog"] });

@@ -66,7 +66,7 @@ export const api = {
         method: "POST",
         body: JSON.stringify(data),
       }),
-    update: (id: string, data: { sprintStart?: string; sprintEnd?: string; notes?: string }) =>
+    update: (id: string, data: { sprintStart?: string; sprintEnd?: string; notes?: string; sleepHours?: number | null }) =>
       fetchApi<{ dailyLog: DailyLog }>(`/api/daily-logs/${id}`, {
         method: "PUT",
         body: JSON.stringify(data),
@@ -128,6 +128,11 @@ export const api = {
       }),
     delete: (id: string) =>
       fetchApi<{ success: true }>(`/api/backlog-items/${id}`, { method: "DELETE" }),
+    reorder: (entries: { id: string; sortOrder: number }[]) =>
+      fetchApi<{ success: true }>("/api/backlog-items/reorder", {
+        method: "PUT",
+        body: JSON.stringify({ entries }),
+      }),
   },
 
   weeklyGoals: {

@@ -14,6 +14,7 @@ export type DailyLog = {
   sprintStart: string | null;
   sprintEnd: string | null;
   notes: string | null;
+  sleepHours: number | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -42,6 +43,7 @@ export type BacklogItem = {
   categoryId: string;
   title: string;
   starRating: number;
+  sortOrder: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

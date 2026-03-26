@@ -19,9 +19,10 @@ import type { TaskEntry } from "@/types";
 interface TaskEntryRowProps {
   task: TaskEntry;
   onEdit: (task: TaskEntry) => void;
+  isOverlay?: boolean;
 }
 
-export function TaskEntryRow({ task, onEdit }: TaskEntryRowProps) {
+export function TaskEntryRow({ task, onEdit, isOverlay }: TaskEntryRowProps) {
   const toggleComplete = useToggleTaskComplete();
   const updateTask = useUpdateTaskEntry();
   const deleteTask = useDeleteTaskEntry();
@@ -48,11 +49,12 @@ export function TaskEntryRow({ task, onEdit }: TaskEntryRowProps) {
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={isOverlay ? undefined : style}
       className={cn(
         "flex items-center gap-2 rounded-lg border bg-card p-3 transition-colors",
         isDragging && "opacity-50",
-        task.isCompleted && "bg-muted/50"
+        task.isCompleted && "bg-muted/50",
+        isOverlay && "shadow-lg ring-2 ring-primary/20"
       )}
     >
       <button

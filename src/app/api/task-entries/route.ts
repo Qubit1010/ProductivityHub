@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/lib/auth/config";
 import { db } from "@/lib/db";
-import { taskEntries, dailyLogs } from "@/lib/db/schema";
+import { taskEntries, dailyLogs, categories } from "@/lib/db/schema";
 import { eq, and, gte, lte, asc, inArray } from "drizzle-orm";
 import { createTaskEntrySchema } from "@/lib/validators/task-entry";
 import { computeDurationMinutes } from "@/lib/utils/csv-parser";
@@ -19,7 +19,16 @@ export async function GET(req: NextRequest) {
     const to = searchParams.get("to");
 
     if (dailyLogId) {
-      const result = await db.select().from(taskEntries).where(and(eq(taskEntries.userId, userId), eq(taskEntries.dailyLogId, dailyLogId))).orderBy(asc(taskEntries.sortOrder));
+      const rows = await db
+        .select({
+          task: taskEntries,
+          category: categories,
+        })
+        .from(taskEntries)
+        .leftJoin(categories, eq(taskEntries.categoryId, categories.id))
+        .where(and(eq(taskEntries.userId, userId), eq(taskEntries.dailyLogId, dailyLogId)))
+        .orderBy(asc(taskEntries.sortOrder));
+      const result = rows.map((r) => ({ ...r.task, category: r.category }));
       return NextResponse.json({ taskEntries: result });
     }
 
@@ -27,7 +36,16 @@ export async function GET(req: NextRequest) {
       const logs = await db.select({ id: dailyLogs.id }).from(dailyLogs).where(and(eq(dailyLogs.userId, userId), gte(dailyLogs.logDate, from), lte(dailyLogs.logDate, to)));
       const logIds = logs.map((l) => l.id);
       if (logIds.length === 0) return NextResponse.json({ taskEntries: [] });
-      const result = await db.select().from(taskEntries).where(and(eq(taskEntries.userId, userId), inArray(taskEntries.dailyLogId, logIds))).orderBy(asc(taskEntries.sortOrder));
+      const rows = await db
+        .select({
+          task: taskEntries,
+          category: categories,
+        })
+        .from(taskEntries)
+        .leftJoin(categories, eq(taskEntries.categoryId, categories.id))
+        .where(and(eq(taskEntries.userId, userId), inArray(taskEntries.dailyLogId, logIds)))
+        .orderBy(asc(taskEntries.sortOrder));
+      const result = rows.map((r) => ({ ...r.task, category: r.category }));
       return NextResponse.json({ taskEntries: result });
     }
 

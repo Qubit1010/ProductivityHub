@@ -9,6 +9,7 @@ import {
   timestamp,
   date,
   time,
+  real,
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
@@ -56,6 +57,7 @@ export const dailyLogs = pgTable(
     sprintStart: time("sprint_start"),
     sprintEnd: time("sprint_end"),
     notes: text("notes"),
+    sleepHours: real("sleep_hours"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -121,6 +123,7 @@ export const backlogItems = pgTable(
       .notNull(),
     title: varchar("title", { length: 255 }).notNull(),
     starRating: smallint("star_rating").notNull().default(1),
+    sortOrder: integer("sort_order").notNull().default(0),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),

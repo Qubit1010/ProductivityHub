@@ -35,3 +35,11 @@ export function useDeleteBacklogItem() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["backlogItems"] }),
   });
 }
+
+export function useReorderBacklogItems() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.backlogItems.reorder,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["backlogItems"] }),
+  });
+}

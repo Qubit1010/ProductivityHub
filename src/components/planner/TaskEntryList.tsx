@@ -9,6 +9,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  DragOverlay,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -33,6 +34,7 @@ export function TaskEntryList({
   isLoading,
 }: TaskEntryListProps) {
   const [editingTask, setEditingTask] = useState<TaskEntry | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const reorderTasks = useReorderTaskEntries();
 
   const sensors = useSensors(
@@ -42,8 +44,15 @@ export function TaskEntryList({
     })
   );
 
+  const activeTask = activeId ? tasks.find((t) => t.id === activeId) : null;
+
+  const handleDragStart = useCallback((event: { active: { id: string | number } }) => {
+    setActiveId(String(event.active.id));
+  }, []);
+
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
+      setActiveId(null);
       const { active, over } = event;
       if (!over || active.id === over.id) return;
 
@@ -83,6 +92,7 @@ export function TaskEntryList({
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
       <SortableContext
@@ -99,6 +109,12 @@ export function TaskEntryList({
           ))}
         </div>
       </SortableContext>
+
+      <DragOverlay>
+        {activeTask ? (
+          <TaskEntryRow task={activeTask} onEdit={() => {}} isOverlay />
+        ) : null}
+      </DragOverlay>
 
       {editingTask && (
         <AddTaskDialog
