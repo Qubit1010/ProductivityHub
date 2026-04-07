@@ -35,7 +35,9 @@ export async function POST(req: NextRequest) {
     await db.insert(categories).values(categoryValues);
 
     return NextResponse.json({ user: { id: user.id, email: user.email, name: user.name } }, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  } catch (error) {
+    console.error("Register error:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: "Internal server error", details: message }, { status: 500 });
   }
 }
