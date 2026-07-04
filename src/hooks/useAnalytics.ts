@@ -48,3 +48,17 @@ export function useSprintAdherence(from: string, to: string) {
     select: (data) => data.days,
   });
 }
+
+export function useInsights(from: string, to: string) {
+  return useQuery({
+    queryKey: ["analytics", "insights", from, to],
+    queryFn: () => api.analytics.insights(from, to),
+  });
+}
+
+export function useFocus(date: string) {
+  return useQuery({
+    queryKey: ["analytics", "focus", date],
+    queryFn: () => api.analytics.focus(date),
+  });
+}

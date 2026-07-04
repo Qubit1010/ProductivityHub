@@ -11,6 +11,8 @@ import type {
   HourlyDistribution,
   StreakData,
   SprintAdherence,
+  InsightsData,
+  TodayFocus,
 } from "@/types";
 
 async function fetchApi<T>(url: string, options?: RequestInit): Promise<T> {
@@ -87,6 +89,7 @@ export const api = {
       timeStart?: string;
       timeEnd?: string;
       backlogItemId?: string;
+      isRolledOver?: boolean;
     }) =>
       fetchApi<{ taskEntry: TaskEntry }>("/api/task-entries", {
         method: "POST",
@@ -164,6 +167,10 @@ export const api = {
     streaks: () => fetchApi<StreakData>("/api/analytics/streaks"),
     sprintAdherence: (from: string, to: string) =>
       fetchApi<SprintAdherence>(`/api/analytics/sprint-adherence?from=${from}&to=${to}`),
+    insights: (from: string, to: string) =>
+      fetchApi<InsightsData>(`/api/analytics/insights?from=${from}&to=${to}`),
+    focus: (date: string) =>
+      fetchApi<TodayFocus>(`/api/analytics/focus?date=${date}`),
   },
 
   import: {

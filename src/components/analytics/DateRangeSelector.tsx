@@ -2,8 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/shared/DatePicker";
-import { toDateString, subDays, getWeekBounds, format } from "@/lib/utils/date";
-import { startOfMonth, format as fnsFormat } from "date-fns";
+import { getPresetRange, type RangePreset } from "@/lib/utils/date";
 
 interface DateRangeSelectorProps {
   from: string;
@@ -12,39 +11,30 @@ interface DateRangeSelectorProps {
   onToChange: (date: string) => void;
 }
 
+const PRESETS: { label: string; preset: RangePreset }[] = [
+  { label: "This Week", preset: "this-week" },
+  { label: "Last Week", preset: "last-week" },
+  { label: "This Month", preset: "this-month" },
+  { label: "Last Month", preset: "last-month" },
+  { label: "This Quarter", preset: "this-quarter" },
+  { label: "Last Quarter", preset: "last-quarter" },
+  { label: "Last 30 Days", preset: "last-30-days" },
+];
+
 export function DateRangeSelector({
   from,
   to,
   onFromChange,
   onToChange,
 }: DateRangeSelectorProps) {
-  const today = toDateString();
-
-  const presets = [
-    {
-      label: "This Week",
-      apply: () => {
-        const bounds = getWeekBounds();
-        onFromChange(bounds.start);
-        onToChange(bounds.end);
-      },
+  const presets = PRESETS.map(({ label, preset }) => ({
+    label,
+    apply: () => {
+      const range = getPresetRange(preset);
+      onFromChange(range.from);
+      onToChange(range.to);
     },
-    {
-      label: "This Month",
-      apply: () => {
-        const monthStart = fnsFormat(startOfMonth(new Date()), "yyyy-MM-dd");
-        onFromChange(monthStart);
-        onToChange(today);
-      },
-    },
-    {
-      label: "Last 30 Days",
-      apply: () => {
-        onFromChange(format(subDays(new Date(), 30), "yyyy-MM-dd"));
-        onToChange(today);
-      },
-    },
-  ];
+  }));
 
   return (
     <div className="flex flex-wrap items-center gap-2">

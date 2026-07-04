@@ -9,6 +9,7 @@ export const createTaskEntrySchema = z.object({
   timeStart: z.string().nullable().optional(),
   timeEnd: z.string().nullable().optional(),
   backlogItemId: z.string().uuid().nullable().optional(),
+  isRolledOver: z.boolean().optional(),
 });
 
 export const updateTaskEntrySchema = z.object({

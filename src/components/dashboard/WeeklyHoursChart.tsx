@@ -14,12 +14,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { useDailyBreakdown } from "@/hooks/useAnalytics";
 import { useCategories } from "@/hooks/useCategories";
-import { getWeekBounds } from "@/lib/utils/date";
 import { formatDate } from "@/lib/utils/date";
 
-export function WeeklyHoursChart() {
-  const { start, end } = getWeekBounds();
-  const { data: days, isLoading: loadingDays } = useDailyBreakdown(start, end);
+interface WeeklyHoursChartProps {
+  from: string;
+  to: string;
+}
+
+export function WeeklyHoursChart({ from, to }: WeeklyHoursChartProps) {
+  const { data: days, isLoading: loadingDays } = useDailyBreakdown(from, to);
   const { isLoading: loadingCats } = useCategories();
 
   if (loadingDays || loadingCats) {
@@ -90,6 +93,7 @@ export function WeeklyHoursChart() {
                     stackId="hours"
                     fill={color}
                     radius={[2, 2, 0, 0]}
+                    isAnimationActive={false}
                   />
                 )
               )}

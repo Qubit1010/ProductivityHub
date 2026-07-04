@@ -10,6 +10,7 @@ import { HourlyHistogram } from "@/components/analytics/HourlyHistogram";
 import { CompletionRateChart } from "@/components/analytics/CompletionRateChart";
 import { SprintAdherenceGauge } from "@/components/analytics/SprintAdherenceGauge";
 import { WeeklyGoalProgress } from "@/components/analytics/WeeklyGoalProgress";
+import { InsightsPanel } from "@/components/analytics/InsightsPanel";
 
 export default function AnalyticsPage() {
   const [from, setFrom] = useState(format(subDays(new Date(), 30), "yyyy-MM-dd"));
@@ -22,6 +23,7 @@ export default function AnalyticsPage() {
           <h1 className="text-3xl font-bold">Analytics</h1>
           <DateRangeSelector from={from} to={to} onFromChange={setFrom} onToChange={setTo} />
         </div>
+        <InsightsPanel from={from} to={to} />
         <TimeHeatmap from={from} to={to} />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <CategoryTrendChart from={from} to={to} />
@@ -31,7 +33,7 @@ export default function AnalyticsPage() {
           <CompletionRateChart from={from} to={to} />
           <SprintAdherenceGauge from={from} to={to} />
         </div>
-        <WeeklyGoalProgress weekStart={from} />
+        <WeeklyGoalProgress />
       </div>
     </AppShell>
   );

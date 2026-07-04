@@ -135,6 +135,54 @@ export type SprintAdherence = {
   }[];
 };
 
+export type Insight = {
+  id: string;
+  severity: "good" | "info" | "warn";
+  text: string;
+};
+
+export type InsightsData = {
+  lowData: boolean;
+  insights: Insight[];
+  comparison: {
+    current: PeriodStats;
+    previous: PeriodStats;
+  };
+};
+
+export type PeriodStats = {
+  from: string;
+  to: string;
+  totalMinutes: number;
+  completionRate: number;
+  topCategory: { code: string; color: string; minutes: number } | null;
+};
+
+export type FocusTask = {
+  id: string;
+  title: string;
+  starRating: number;
+  categoryId: string;
+  code: string | null;
+  color: string | null;
+};
+
+export type TodayFocus = {
+  date: string;
+  undoneToday: FocusTask[];
+  yesterdayUndone: FocusTask[];
+  agingBacklog: (FocusTask & { ageDays: number; score: number; createdAt: string })[];
+  goalsBehindPace: {
+    categoryId: string;
+    code: string | null;
+    targetMinutes: number;
+    actualMinutes: number;
+    deficit: number;
+  }[];
+  doneToday: { tasksCompleted: number; tasksTotal: number; totalMinutes: number };
+  doneWeek: { tasksCompleted: number; tasksTotal: number; totalMinutes: number };
+};
+
 export type ApiError = {
   error: string;
   code?: string;

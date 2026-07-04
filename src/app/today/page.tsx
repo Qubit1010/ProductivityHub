@@ -11,6 +11,7 @@ import { DayCompletionSummary } from "@/components/planner/DayCompletionSummary"
 import { SleepTracker } from "@/components/planner/SleepTracker";
 import { useDailyLog, useCreateDailyLog } from "@/hooks/useDailyLog";
 import { useTaskEntries } from "@/hooks/useTaskEntries";
+import { TodayFocusCard } from "@/components/dashboard/TodayFocusCard";
 
 export default function TodayPage() {
   const today = format(new Date(), "yyyy-MM-dd");
@@ -34,6 +35,7 @@ export default function TodayPage() {
               {dailyLog && <AddTaskDialog dailyLogId={dailyLog.id} />}
             </div>
           </div>
+          <TodayFocusCard />
           {dailyLog && (
             <SleepTracker dailyLogId={dailyLog.id} sleepHours={dailyLog.sleepHours} />
           )}

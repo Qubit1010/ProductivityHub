@@ -6,7 +6,7 @@ import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { useWeeklyGoals } from "@/hooks/useWeeklyGoals";
 import { useAnalyticsSummary } from "@/hooks/useAnalytics";
 import { useCategories } from "@/hooks/useCategories";
-import { getWeekBounds } from "@/lib/utils/date";
+import { getWeekBounds, parseISO } from "@/lib/utils/date";
 import { formatDuration } from "@/lib/utils/time";
 
 interface WeeklyGoalProgressProps {
@@ -14,11 +14,12 @@ interface WeeklyGoalProgressProps {
 }
 
 export function WeeklyGoalProgress({ weekStart }: WeeklyGoalProgressProps) {
-  const bounds = getWeekBounds();
-  const start = weekStart ?? bounds.start;
-  const { data: goals, isLoading: loadingGoals } = useWeeklyGoals(start);
+  // both bounds derive from the same week — a stale weekStart prop can no
+  // longer mix with the current week's end
+  const bounds = getWeekBounds(weekStart ? parseISO(weekStart) : new Date());
+  const { data: goals, isLoading: loadingGoals } = useWeeklyGoals(bounds.start);
   const { data: summary, isLoading: loadingSummary } = useAnalyticsSummary(
-    start,
+    bounds.start,
     bounds.end
   );
   const { data: categories } = useCategories();

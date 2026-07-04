@@ -11,11 +11,14 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { useAnalyticsSummary } from "@/hooks/useAnalytics";
-import { getWeekBounds } from "@/lib/utils/date";
 
-export function CategoryDonutChart() {
-  const { start, end } = getWeekBounds();
-  const { data, isLoading } = useAnalyticsSummary(start, end);
+interface CategoryDonutChartProps {
+  from: string;
+  to: string;
+}
+
+export function CategoryDonutChart({ from, to }: CategoryDonutChartProps) {
+  const { data, isLoading } = useAnalyticsSummary(from, to);
 
   if (isLoading) {
     return (
@@ -68,6 +71,7 @@ export function CategoryDonutChart() {
                 outerRadius={80}
                 paddingAngle={2}
                 dataKey="value"
+                isAnimationActive={false}
               >
                 {chartData.map((entry, index) => (
                   <Cell key={index} fill={entry.color} />

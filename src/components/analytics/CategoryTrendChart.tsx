@@ -87,6 +87,7 @@ export function CategoryTrendChart({ from, to }: CategoryTrendChartProps) {
                   stroke={t.color}
                   strokeWidth={2}
                   dot={{ r: 3 }}
+                  isAnimationActive={false}
                 />
               ))}
             </LineChart>

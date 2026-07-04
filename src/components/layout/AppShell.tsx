@@ -3,8 +3,10 @@
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { useReminders } from "@/hooks/useReminders";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  useReminders();
   return (
     <SidebarProvider>
       <AppSidebar />

@@ -67,6 +67,7 @@ export function CompletionRateChart({ from, to }: CompletionRateChartProps) {
                 strokeDasharray="4 4"
                 name="Planned"
                 dot={{ r: 3 }}
+                isAnimationActive={false}
               />
               <Line
                 type="monotone"
@@ -75,6 +76,7 @@ export function CompletionRateChart({ from, to }: CompletionRateChartProps) {
                 strokeWidth={2}
                 name="Completed"
                 dot={{ r: 3 }}
+                isAnimationActive={false}
               />
             </LineChart>
           </ResponsiveContainer>

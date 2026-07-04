@@ -91,6 +91,10 @@ export const taskEntries = pgTable(
     durationMinutes: integer("duration_minutes"),
     isCompleted: boolean("is_completed").notNull().default(false),
     completedAt: timestamp("completed_at"),
+    // marks copies created by the "roll over to today" action, so insight
+    // rules don't double-count one missed task across days (tag column is
+    // reserved for CSV import/export semantics — do not overload it)
+    isRolledOver: boolean("is_rolled_over").notNull().default(false),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),

@@ -61,6 +61,7 @@ export function HourlyHistogram({ from, to }: HourlyHistogramProps) {
                 fill="hsl(var(--primary))"
                 radius={[4, 4, 0, 0]}
                 name="Tasks"
+                isAnimationActive={false}
               />
             </BarChart>
           </ResponsiveContainer>

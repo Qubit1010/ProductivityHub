@@ -9,7 +9,9 @@
     "lint": "next lint",
     "db:generate": "drizzle-kit generate:pg",
     "db:migrate": "drizzle-kit push:pg",
-    "db:seed": "npx tsx src/lib/db/seed.ts"
+    "db:seed": "npx tsx src/lib/db/seed.ts",
+    "digest": "npx tsx --env-file=.env.local scripts/daily-digest.ts",
+    "check:logic": "npx tsx --env-file=.env.local scripts/check-logic.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
