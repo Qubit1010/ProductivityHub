@@ -4,12 +4,93 @@ import { useEffect, useState } from "react";
 import { Bell, Plus, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { StarRating } from "@/components/shared/StarRating";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { useFocus } from "@/hooks/useAnalytics";
+import { useCategories } from "@/hooks/useCategories";
 import { useDailyLog, useCreateDailyLog } from "@/hooks/useDailyLog";
 import { useCreateTaskEntry } from "@/hooks/useTaskEntries";
 import { toDateString } from "@/lib/utils/date";
 import { formatDuration } from "@/lib/utils/time";
+
+// ponytail: rapid-fire quick-add row (title+category+stars), form stays open after
+// each add so the user can chain 4-6 tasks without reopening AddTaskDialog each time.
+function QuickAddRow({
+  dailyLogId,
+  onAdded,
+}: {
+  dailyLogId: string | undefined;
+  onAdded: () => void;
+}) {
+  const { data: categories } = useCategories();
+  const createDailyLog = useCreateDailyLog();
+  const createTaskEntry = useCreateTaskEntry();
+  const [title, setTitle] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [starRating, setStarRating] = useState(1);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!categoryId && categories?.[0]) setCategoryId(categories[0].id);
+  }, [categories, categoryId]);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim() || !categoryId || busy) return;
+    setBusy(true);
+    try {
+      const logId = dailyLogId ?? (await createDailyLog.mutateAsync({ logDate: toDateString() })).dailyLog.id;
+      await createTaskEntry.mutateAsync({
+        dailyLogId: logId,
+        categoryId,
+        title: title.trim(),
+        starRating,
+      });
+      setTitle("");
+      onAdded();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="flex flex-wrap items-center gap-2">
+      <Input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Add a task for today..."
+        className="h-8 min-w-[160px] flex-1"
+      />
+      <Select value={categoryId} onValueChange={setCategoryId}>
+        <SelectTrigger className="h-8 w-[130px] shrink-0">
+          <SelectValue placeholder="Category" />
+        </SelectTrigger>
+        <SelectContent>
+          {(categories ?? []).map((cat) => (
+            <SelectItem key={cat.id} value={cat.id}>
+              <div className="flex items-center gap-2">
+                <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
+                {cat.code}
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <StarRating value={starRating} editable onChange={setStarRating} size={16} />
+      <Button type="submit" size="sm" disabled={!title.trim() || !categoryId || busy}>
+        {busy ? "Adding…" : "Add"}
+      </Button>
+    </form>
+  );
+}
 
 function Stars({ n }: { n: number }) {
   return <span className="text-xs text-amber-500">{"★".repeat(n)}</span>;
@@ -228,9 +309,10 @@ export function TodayFocusCard() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        <QuickAddRow dailyLogId={todayLog?.id} onAdded={() => {}} />
         {nothing && (
           <p className="text-sm text-muted-foreground">
-            Nothing pending — plan your day below.
+            Nothing pending — add tasks above or plan your day below.
           </p>
         )}
         {missed.length > 0 && (
