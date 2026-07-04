@@ -45,6 +45,7 @@ export type BacklogItem = {
   starRating: number;
   sortOrder: number;
   isActive: boolean;
+  completedAt: string | null;
   createdAt: string;
   updatedAt: string;
   category?: Category;

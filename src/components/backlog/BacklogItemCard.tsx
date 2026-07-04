@@ -1,6 +1,6 @@
 "use client";
 
-import { GripVertical, Pencil, Trash2 } from "lucide-react";
+import { Check, GripVertical, Pencil, Trash2 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
@@ -64,6 +64,15 @@ export function BacklogItemCard({ item, onEdit, isOverlay }: BacklogItemCardProp
           />
         </div>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-green-600"
+            aria-label={`Mark "${item.title}" done`}
+            onClick={() => updateItem.mutate({ id: item.id, isActive: false })}
+          >
+            <Check className="h-3.5 w-3.5" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"

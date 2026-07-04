@@ -116,10 +116,15 @@ export const api = {
   },
 
   backlogItems: {
-    list: (categoryId?: string) =>
-      fetchApi<{ backlogItems: BacklogItem[] }>(
-        `/api/backlog-items${categoryId ? `?categoryId=${categoryId}` : ""}`
-      ),
+    list: (categoryId?: string, status?: "active" | "completed") => {
+      const params = new URLSearchParams();
+      if (categoryId) params.set("categoryId", categoryId);
+      if (status) params.set("status", status);
+      const qs = params.toString();
+      return fetchApi<{ backlogItems: BacklogItem[] }>(
+        `/api/backlog-items${qs ? `?${qs}` : ""}`
+      );
+    },
     create: (data: { categoryId: string; title: string; starRating?: number }) =>
       fetchApi<{ backlogItem: BacklogItem }>("/api/backlog-items", {
         method: "POST",

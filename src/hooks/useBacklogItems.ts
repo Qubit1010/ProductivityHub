@@ -11,6 +11,14 @@ export function useBacklogItems(categoryId?: string) {
   });
 }
 
+export function useCompletedBacklogItems() {
+  return useQuery({
+    queryKey: ["backlogItems", "completed"],
+    queryFn: () => api.backlogItems.list(undefined, "completed"),
+    select: (data) => data.backlogItems,
+  });
+}
+
 export function useCreateBacklogItem() {
   const qc = useQueryClient();
   return useMutation({

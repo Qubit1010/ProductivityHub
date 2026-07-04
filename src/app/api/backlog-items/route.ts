@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authConfig } from "@/lib/auth/config";
 import { db } from "@/lib/db";
 import { backlogItems } from "@/lib/db/schema";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, desc } from "drizzle-orm";
 import { createBacklogItemSchema } from "@/lib/validators/backlog-item";
 
 export async function GET(req: NextRequest) {
@@ -14,11 +14,16 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const categoryId = searchParams.get("categoryId");
+    const completed = searchParams.get("status") === "completed";
 
-    const conditions = [eq(backlogItems.userId, userId), eq(backlogItems.isActive, true)];
+    const conditions = [eq(backlogItems.userId, userId), eq(backlogItems.isActive, !completed)];
     if (categoryId) conditions.push(eq(backlogItems.categoryId, categoryId));
 
-    const result = await db.select().from(backlogItems).where(and(...conditions)).orderBy(asc(backlogItems.createdAt));
+    const result = await db
+      .select()
+      .from(backlogItems)
+      .where(and(...conditions))
+      .orderBy(completed ? desc(backlogItems.completedAt) : asc(backlogItems.createdAt));
     return NextResponse.json({ backlogItems: result });
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

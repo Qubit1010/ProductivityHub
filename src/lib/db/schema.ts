@@ -129,6 +129,7 @@ export const backlogItems = pgTable(
     starRating: smallint("star_rating").notNull().default(1),
     sortOrder: integer("sort_order").notNull().default(0),
     isActive: boolean("is_active").notNull().default(true),
+    completedAt: timestamp("completed_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

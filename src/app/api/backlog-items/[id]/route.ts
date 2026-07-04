@@ -30,7 +30,16 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     const parsed = updateBacklogItemSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: "Validation error" }, { status: 400 });
 
-    const [item] = await db.update(backlogItems).set({ ...parsed.data, updatedAt: new Date() }).where(and(eq(backlogItems.id, params.id), eq(backlogItems.userId, userId))).returning();
+    // isActive is the completion toggle: false -> mark done (stamp completedAt),
+    // true -> restore to the active board (clear completedAt).
+    const completedAt =
+      parsed.data.isActive === false ? new Date() : parsed.data.isActive === true ? null : undefined;
+
+    const [item] = await db
+      .update(backlogItems)
+      .set({ ...parsed.data, ...(completedAt !== undefined ? { completedAt } : {}), updatedAt: new Date() })
+      .where(and(eq(backlogItems.id, params.id), eq(backlogItems.userId, userId)))
+      .returning();
     if (!item) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ backlogItem: item });
   } catch {
