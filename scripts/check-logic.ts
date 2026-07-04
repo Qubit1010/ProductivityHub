@@ -48,4 +48,57 @@ assert.deepStrictEqual(
   assert.ok(score(2, 400) === 60 && score(3, 400) === 90, "stars break capped-age ties");
 }
 
+// 5. leverage-trend share math + bucket-sum invariant (Round 2)
+{
+  // one ISO week's rows → 3-star share = threeMin / total
+  const rows = [
+    { starRating: 3, durationMinutes: 90 },
+    { starRating: 1, durationMinutes: 30 },
+    { starRating: 2, durationMinutes: 30 },
+  ];
+  const total = rows.reduce((s, r) => s + r.durationMinutes, 0);
+  const three = rows
+    .filter((r) => r.starRating === 3)
+    .reduce((s, r) => s + r.durationMinutes, 0);
+  assert.strictEqual(total, 150, "leverage total minutes");
+  assert.strictEqual(Math.round((three / total) * 100), 60, "3-star share = 60%");
+  // bucket-sum invariant: summing per-bucket totals equals the raw row total
+  const buckets = [
+    { total: 90 }, // wk A
+    { total: 60 }, // wk B
+  ];
+  assert.strictEqual(
+    buckets.reduce((s, b) => s + b.total, 0),
+    total,
+    "weekly buckets sum to range total"
+  );
+}
+
+// 6. category momentum: delta = cur - prev, sorted by |delta|, prev-only cats included (Round 2)
+{
+  const cur = [
+    { categoryId: "a", code: "W", minutes: 400 },
+    { categoryId: "b", code: "M", minutes: 60 },
+  ];
+  const prev = [
+    { categoryId: "a", minutes: 180 },
+    { categoryId: "c", code: "P", minutes: 120 },
+  ];
+  const prevBy = new Map(prev.map((c) => [c.categoryId, c.minutes]));
+  const merged = new Map<string, { code: string; cur: number; prev: number }>();
+  for (const c of cur) merged.set(c.categoryId, { code: c.code, cur: c.minutes, prev: prevBy.get(c.categoryId) ?? 0 });
+  for (const c of prev) {
+    if (!merged.has(c.categoryId)) {
+      merged.set(c.categoryId, { code: (c as { code?: string }).code ?? "?", cur: 0, prev: c.minutes });
+    }
+  }
+  const items = Array.from(merged.values())
+    .map((i) => ({ ...i, delta: i.cur - i.prev }))
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  assert.strictEqual(items[0].code, "W", "biggest mover first");
+  assert.strictEqual(items[0].delta, 220, "W delta = 400 - 180");
+  const p = items.find((i) => i.code === "P")!;
+  assert.strictEqual(p.delta, -120, "prev-only category delta = 0 - 120");
+}
+
 console.log("CHECK_LOGIC: ALL PASS");

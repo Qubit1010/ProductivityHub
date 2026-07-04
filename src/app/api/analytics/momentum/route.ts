@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/lib/auth/config";
-import { getCategoryTrends } from "@/lib/db/analytics";
+import { getAnalyticsMomentum } from "@/lib/db/analytics";
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,8 +14,7 @@ export async function GET(req: NextRequest) {
     const to = searchParams.get("to");
     if (!from || !to) return NextResponse.json({ error: "from and to params required" }, { status: 400 });
 
-    const data = await getCategoryTrends(userId, from, to);
-    return NextResponse.json(data);
+    return NextResponse.json(await getAnalyticsMomentum(userId, from, to));
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

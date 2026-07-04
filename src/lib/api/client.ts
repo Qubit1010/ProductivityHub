@@ -7,12 +7,13 @@ import type {
   Import,
   AnalyticsSummary,
   DailyBreakdown,
-  CategoryTrend,
-  HourlyDistribution,
   StreakData,
-  SprintAdherence,
   InsightsData,
   TodayFocus,
+  LeverageTrend,
+  Momentum,
+  WeeklyScorecard,
+  AiAnalysis,
 } from "@/types";
 
 async function fetchApi<T>(url: string, options?: RequestInit): Promise<T> {
@@ -160,17 +161,21 @@ export const api = {
       fetchApi<AnalyticsSummary>(`/api/analytics/summary?from=${from}&to=${to}`),
     dailyBreakdown: (from: string, to: string) =>
       fetchApi<DailyBreakdown>(`/api/analytics/daily-breakdown?from=${from}&to=${to}`),
-    categoryTrends: (from: string, to: string) =>
-      fetchApi<{ trends: CategoryTrend[] }>(`/api/analytics/category-trends?from=${from}&to=${to}`),
-    hourlyDistribution: (from: string, to: string) =>
-      fetchApi<HourlyDistribution>(`/api/analytics/hourly-distribution?from=${from}&to=${to}`),
     streaks: () => fetchApi<StreakData>("/api/analytics/streaks"),
-    sprintAdherence: (from: string, to: string) =>
-      fetchApi<SprintAdherence>(`/api/analytics/sprint-adherence?from=${from}&to=${to}`),
     insights: (from: string, to: string) =>
       fetchApi<InsightsData>(`/api/analytics/insights?from=${from}&to=${to}`),
     focus: (date: string) =>
       fetchApi<TodayFocus>(`/api/analytics/focus?date=${date}`),
+    leverageTrend: (from: string, to: string) =>
+      fetchApi<LeverageTrend>(`/api/analytics/leverage-trend?from=${from}&to=${to}`),
+    momentum: (from: string, to: string) =>
+      fetchApi<Momentum>(`/api/analytics/momentum?from=${from}&to=${to}`),
+    scorecard: () => fetchApi<WeeklyScorecard>("/api/analytics/scorecard"),
+    aiAnalysis: (from: string, to: string) =>
+      fetchApi<AiAnalysis>("/api/analytics/ai-analysis", {
+        method: "POST",
+        body: JSON.stringify({ from, to }),
+      }),
   },
 
   import: {

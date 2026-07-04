@@ -18,34 +18,10 @@ export function useDailyBreakdown(from: string, to: string) {
   });
 }
 
-export function useCategoryTrends(from: string, to: string) {
-  return useQuery({
-    queryKey: ["analytics", "categoryTrends", from, to],
-    queryFn: () => api.analytics.categoryTrends(from, to),
-    select: (data) => data.trends,
-  });
-}
-
-export function useHourlyDistribution(from: string, to: string) {
-  return useQuery({
-    queryKey: ["analytics", "hourlyDistribution", from, to],
-    queryFn: () => api.analytics.hourlyDistribution(from, to),
-    select: (data) => data.hours,
-  });
-}
-
 export function useStreaks() {
   return useQuery({
     queryKey: ["analytics", "streaks"],
     queryFn: () => api.analytics.streaks(),
-  });
-}
-
-export function useSprintAdherence(from: string, to: string) {
-  return useQuery({
-    queryKey: ["analytics", "sprintAdherence", from, to],
-    queryFn: () => api.analytics.sprintAdherence(from, to),
-    select: (data) => data.days,
   });
 }
 
@@ -60,5 +36,41 @@ export function useFocus(date: string) {
   return useQuery({
     queryKey: ["analytics", "focus", date],
     queryFn: () => api.analytics.focus(date),
+  });
+}
+
+export function useLeverageTrend(from: string, to: string) {
+  return useQuery({
+    queryKey: ["analytics", "leverageTrend", from, to],
+    queryFn: () => api.analytics.leverageTrend(from, to),
+    select: (data) => data.weeks,
+  });
+}
+
+export function useMomentum(from: string, to: string) {
+  return useQuery({
+    queryKey: ["analytics", "momentum", from, to],
+    queryFn: () => api.analytics.momentum(from, to),
+    select: (data) => data.items,
+  });
+}
+
+export function useWeeklyScorecard() {
+  return useQuery({
+    queryKey: ["analytics", "scorecard"],
+    queryFn: () => api.analytics.scorecard(),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+// on-demand: fires only when refetch() is called, then cached for the session per range
+export function useAiAnalysis(from: string, to: string) {
+  return useQuery({
+    queryKey: ["analytics", "aiAnalysis", from, to],
+    queryFn: () => api.analytics.aiAnalysis(from, to),
+    enabled: false,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    retry: false,
   });
 }

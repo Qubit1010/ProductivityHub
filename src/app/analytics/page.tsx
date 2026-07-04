@@ -4,13 +4,13 @@ import { useState } from "react";
 import { format, subDays } from "date-fns";
 import { AppShell } from "@/components/layout/AppShell";
 import { DateRangeSelector } from "@/components/analytics/DateRangeSelector";
-import { TimeHeatmap } from "@/components/analytics/TimeHeatmap";
-import { CategoryTrendChart } from "@/components/analytics/CategoryTrendChart";
-import { HourlyHistogram } from "@/components/analytics/HourlyHistogram";
-import { CompletionRateChart } from "@/components/analytics/CompletionRateChart";
-import { SprintAdherenceGauge } from "@/components/analytics/SprintAdherenceGauge";
-import { WeeklyGoalProgress } from "@/components/analytics/WeeklyGoalProgress";
+import { AICoachPanel } from "@/components/analytics/AICoachPanel";
+import { WeeklyScorecard } from "@/components/analytics/WeeklyScorecard";
+import { LeverageTrendChart } from "@/components/analytics/LeverageTrendChart";
+import { TimeAllocationMap } from "@/components/analytics/TimeAllocationMap";
+import { CategoryMomentum } from "@/components/analytics/CategoryMomentum";
 import { InsightsPanel } from "@/components/analytics/InsightsPanel";
+import { TimeHeatmap } from "@/components/analytics/TimeHeatmap";
 
 export default function AnalyticsPage() {
   const [from, setFrom] = useState(format(subDays(new Date(), 30), "yyyy-MM-dd"));
@@ -23,17 +23,22 @@ export default function AnalyticsPage() {
           <h1 className="text-3xl font-bold">Analytics</h1>
           <DateRangeSelector from={from} to={to} onFromChange={setFrom} onToChange={setTo} />
         </div>
-        <InsightsPanel from={from} to={to} />
+
+        <AICoachPanel from={from} to={to} />
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <WeeklyScorecard />
+          <LeverageTrendChart from={from} to={to} />
+        </div>
+
+        <TimeAllocationMap from={from} to={to} />
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <CategoryMomentum from={from} to={to} />
+          <InsightsPanel from={from} to={to} />
+        </div>
+
         <TimeHeatmap from={from} to={to} />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <CategoryTrendChart from={from} to={to} />
-          <HourlyHistogram from={from} to={to} />
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <CompletionRateChart from={from} to={to} />
-          <SprintAdherenceGauge from={from} to={to} />
-        </div>
-        <WeeklyGoalProgress />
       </div>
     </AppShell>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell } from "lucide-react";
+import { Bell, Plus, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
@@ -10,21 +10,59 @@ import { useDailyLog, useCreateDailyLog } from "@/hooks/useDailyLog";
 import { useCreateTaskEntry } from "@/hooks/useTaskEntries";
 import { toDateString } from "@/lib/utils/date";
 import { formatDuration } from "@/lib/utils/time";
-import type { FocusTask } from "@/types";
 
 function Stars({ n }: { n: number }) {
   return <span className="text-xs text-amber-500">{"★".repeat(n)}</span>;
 }
 
-function TaskRow({ task }: { task: FocusTask }) {
+function SuggestionRow({
+  color,
+  title,
+  starRating,
+  meta,
+  busy,
+  onAdd,
+  onDismiss,
+}: {
+  color: string | null;
+  title: string;
+  starRating: number;
+  meta?: string;
+  busy: boolean;
+  onAdd: () => void;
+  onDismiss: () => void;
+}) {
   return (
     <li className="flex items-center gap-2 text-sm">
       <span
         className="h-2 w-2 shrink-0 rounded-full"
-        style={{ backgroundColor: task.color ?? "#888" }}
+        style={{ backgroundColor: color ?? "#888" }}
       />
-      <span className="truncate">{task.title}</span>
-      <Stars n={task.starRating} />
+      <span className="truncate">{title}</span>
+      <Stars n={starRating} />
+      {meta && <span className="text-xs text-muted-foreground">{meta}</span>}
+      <div className="ml-auto flex shrink-0 items-center gap-0.5">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6"
+          aria-label={`Add "${title}" to today`}
+          disabled={busy}
+          onClick={onAdd}
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 text-muted-foreground"
+          aria-label={`Dismiss "${title}"`}
+          disabled={busy}
+          onClick={onDismiss}
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
     </li>
   );
 }
@@ -35,17 +73,46 @@ export function TodayFocusCard() {
   const { data: todayLog } = useDailyLog(today);
   const createDailyLog = useCreateDailyLog();
   const createTaskEntry = useCreateTaskEntry();
-  const [rollingOver, setRollingOver] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [canAskNotify, setCanAskNotify] = useState(false);
+
+  const dismissKey = `focus-dismissed:${today}`;
 
   useEffect(() => {
     setCanAskNotify("Notification" in window && Notification.permission === "default");
-  }, []);
+    try {
+      const raw = localStorage.getItem(dismissKey);
+      if (raw) setDismissed(new Set(JSON.parse(raw) as string[]));
+    } catch {
+      // ignore corrupt/absent localStorage
+    }
+  }, [dismissKey]);
+
+  const dismiss = (id: string) => {
+    setDismissed((prev) => {
+      const next = new Set(prev).add(id);
+      try {
+        localStorage.setItem(dismissKey, JSON.stringify(Array.from(next)));
+      } catch {
+        // ignore write failures
+      }
+      return next;
+    });
+  };
 
   const requestNotify = async () => {
     if (!("Notification" in window)) return;
     await Notification.requestPermission();
     setCanAskNotify(Notification.permission === "default");
+  };
+
+  // guarantee today's daily log exists before any add
+  const ensureLog = async () => {
+    if (todayLog?.id) return todayLog.id;
+    const res = await createDailyLog.mutateAsync({ logDate: today });
+    return res.dailyLog.id;
   };
 
   if (isLoading) {
@@ -71,37 +138,69 @@ export function TodayFocusCard() {
     );
   }
 
+  // dedup: hide anything already sitting in today's plan (by title) or dismissed today
   const todayTitles = new Set(data.undoneToday.map((t) => t.title));
-  // skip tasks already copied to today — a re-click after partial failure can't duplicate
-  const rollable = data.yesterdayUndone.filter((t) => !todayTitles.has(t.title));
+  const missed = data.yesterdayUndone.filter(
+    (t) => !todayTitles.has(t.title) && !dismissed.has(t.id)
+  );
+  const backlog = data.agingBacklog.filter(
+    (b) => !todayTitles.has(b.title) && !dismissed.has(b.id)
+  );
 
-  const handleRollover = async () => {
-    setRollingOver(true);
+  const addMissed = async (task: (typeof missed)[number]) => {
+    setBusyId(task.id);
     try {
-      let logId = todayLog?.id;
-      if (!logId) {
-        const res = await createDailyLog.mutateAsync({ logDate: today });
-        logId = res.dailyLog.id;
-      }
-      for (const task of rollable) {
-        await createTaskEntry.mutateAsync({
-          dailyLogId: logId,
-          categoryId: task.categoryId,
-          title: task.title,
-          starRating: task.starRating,
-          isRolledOver: true,
-        });
-      }
+      const logId = await ensureLog();
+      await createTaskEntry.mutateAsync({
+        dailyLogId: logId,
+        categoryId: task.categoryId,
+        title: task.title,
+        starRating: task.starRating,
+        isRolledOver: true,
+      });
+      dismiss(task.id);
     } finally {
-      setRollingOver(false);
+      setBusyId(null);
     }
   };
 
-  const nothingToShow =
-    data.undoneToday.length === 0 &&
-    data.yesterdayUndone.length === 0 &&
-    data.agingBacklog.length === 0 &&
-    data.goalsBehindPace.length === 0;
+  const addBacklog = async (item: (typeof backlog)[number]) => {
+    setBusyId(item.id);
+    try {
+      const logId = await ensureLog();
+      await createTaskEntry.mutateAsync({
+        dailyLogId: logId,
+        categoryId: item.categoryId,
+        title: item.title,
+        starRating: item.starRating,
+        backlogItemId: item.id,
+      });
+      dismiss(item.id);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const moveAllMissed = async () => {
+    setBulkBusy(true);
+    try {
+      const logId = await ensureLog();
+      for (const t of missed) {
+        await createTaskEntry.mutateAsync({
+          dailyLogId: logId,
+          categoryId: t.categoryId,
+          title: t.title,
+          starRating: t.starRating,
+          isRolledOver: true,
+        });
+        dismiss(t.id);
+      }
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const nothing = missed.length === 0 && backlog.length === 0;
 
   return (
     <Card>
@@ -129,73 +228,56 @@ export function TodayFocusCard() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {nothingToShow && (
+        {nothing && (
           <p className="text-sm text-muted-foreground">
-            Nothing pending. Plan today&apos;s tasks or pull from the backlog.
+            Nothing pending — plan your day below.
           </p>
         )}
-        {data.undoneToday.length > 0 && (
-          <div>
-            <p className="mb-1.5 text-xs font-medium text-muted-foreground">Still open today</p>
-            <ul className="space-y-1">
-              {data.undoneToday.map((t) => (
-                <TaskRow key={t.id} task={t} />
-              ))}
-            </ul>
-          </div>
-        )}
-        {data.yesterdayUndone.length > 0 && (
+        {missed.length > 0 && (
           <div>
             <div className="mb-1.5 flex items-center justify-between">
               <p className="text-xs font-medium text-muted-foreground">Missed yesterday</p>
-              {rollable.length > 0 && (
+              {missed.length > 1 && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleRollover}
-                  disabled={rollingOver}
+                  onClick={moveAllMissed}
+                  disabled={bulkBusy || busyId !== null}
                 >
-                  {rollingOver ? "Moving…" : `Move ${rollable.length} to today`}
+                  {bulkBusy ? "Moving…" : `Move all ${missed.length}`}
                 </Button>
               )}
             </div>
             <ul className="space-y-1">
-              {data.yesterdayUndone.map((t) => (
-                <TaskRow key={t.id} task={t} />
+              {missed.map((t) => (
+                <SuggestionRow
+                  key={t.id}
+                  color={t.color}
+                  title={t.title}
+                  starRating={t.starRating}
+                  busy={busyId === t.id || bulkBusy}
+                  onAdd={() => addMissed(t)}
+                  onDismiss={() => dismiss(t.id)}
+                />
               ))}
             </ul>
           </div>
         )}
-        {data.goalsBehindPace.length > 0 && (
-          <div>
-            <p className="mb-1.5 text-xs font-medium text-muted-foreground">Goals behind pace</p>
-            <ul className="space-y-1">
-              {data.goalsBehindPace.map((g) => (
-                <li key={g.categoryId} className="text-sm">
-                  <span className="font-medium">{g.code ?? "?"}</span>{" "}
-                  <span className="text-muted-foreground">
-                    {formatDuration(g.deficit)} behind ({formatDuration(g.actualMinutes)} /{" "}
-                    {formatDuration(g.targetMinutes)})
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {data.agingBacklog.length > 0 && (
+        {backlog.length > 0 && (
           <div>
             <p className="mb-1.5 text-xs font-medium text-muted-foreground">From the backlog</p>
             <ul className="space-y-1">
-              {data.agingBacklog.map((b) => (
-                <li key={b.id} className="flex items-center gap-2 text-sm">
-                  <span
-                    className="h-2 w-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: b.color ?? "#888" }}
-                  />
-                  <span className="truncate">{b.title}</span>
-                  <Stars n={b.starRating} />
-                  <span className="text-xs text-muted-foreground">{b.ageDays}d old</span>
-                </li>
+              {backlog.map((b) => (
+                <SuggestionRow
+                  key={b.id}
+                  color={b.color}
+                  title={b.title}
+                  starRating={b.starRating}
+                  meta={`${b.ageDays}d old`}
+                  busy={busyId === b.id || bulkBusy}
+                  onAdd={() => addBacklog(b)}
+                  onDismiss={() => dismiss(b.id)}
+                />
               ))}
             </ul>
           </div>

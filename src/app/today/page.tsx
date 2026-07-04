@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { format } from "date-fns";
 import { AppShell } from "@/components/layout/AppShell";
 import { TaskEntryList } from "@/components/planner/TaskEntryList";
-import { SprintTimeBar } from "@/components/planner/SprintTimeBar";
 import { AddTaskDialog } from "@/components/planner/AddTaskDialog";
 import { BacklogSidebar } from "@/components/planner/BacklogSidebar";
 import { DayCompletionSummary } from "@/components/planner/DayCompletionSummary";
@@ -39,7 +38,6 @@ export default function TodayPage() {
           {dailyLog && (
             <SleepTracker dailyLogId={dailyLog.id} sleepHours={dailyLog.sleepHours} />
           )}
-          <SprintTimeBar dailyLog={dailyLog ?? null} tasks={tasks || []} />
           <TaskEntryList dailyLogId={dailyLog?.id ?? ""} tasks={tasks || []} isLoading={logLoading || tasksLoading} />
           <DayCompletionSummary tasks={tasks || []} />
         </div>

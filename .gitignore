@@ -37,3 +37,5 @@ next-env.d.ts
 
 # digest run log
 scripts/digest.log
+
+.vercel

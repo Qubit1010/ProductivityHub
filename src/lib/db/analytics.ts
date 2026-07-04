@@ -1,16 +1,16 @@
 import { db } from "@/lib/db";
 import { taskEntries, dailyLogs, categories, weeklyGoals, backlogItems } from "@/lib/db/schema";
 import { eq, and, gte, lte, sql, desc, asc, inArray } from "drizzle-orm";
-import { computeDurationMinutes } from "@/lib/utils/time";
+import { getPreviousPeriod } from "@/lib/utils/date";
 
 export async function getAnalyticsSummary(userId: string, from: string, to: string) {
   const logs = await db
-    .select({ id: dailyLogs.id, sprintStart: dailyLogs.sprintStart, sprintEnd: dailyLogs.sprintEnd })
+    .select({ id: dailyLogs.id })
     .from(dailyLogs)
     .where(and(eq(dailyLogs.userId, userId), gte(dailyLogs.logDate, from), lte(dailyLogs.logDate, to)));
 
   if (logs.length === 0) {
-    return { totalMinutes: 0, tasksCompleted: 0, tasksTotal: 0, completionRate: 0, sprintUtilization: 0, categoryBreakdown: [] };
+    return { totalMinutes: 0, threeStarMinutes: 0, tasksCompleted: 0, tasksTotal: 0, completionRate: 0, categoryBreakdown: [] };
   }
 
   const logIds = logs.map((l) => l.id);
@@ -22,24 +22,17 @@ export async function getAnalyticsSummary(userId: string, from: string, to: stri
       color: categories.color,
       durationMinutes: taskEntries.durationMinutes,
       isCompleted: taskEntries.isCompleted,
+      starRating: taskEntries.starRating,
     })
     .from(taskEntries)
     .innerJoin(categories, eq(taskEntries.categoryId, categories.id))
     .where(and(eq(taskEntries.userId, userId), inArray(taskEntries.dailyLogId, logIds)));
 
   const totalMinutes = tasks.reduce((s, t) => s + (t.durationMinutes || 0), 0);
+  const threeStarMinutes = tasks.reduce((s, t) => s + (t.starRating === 3 ? t.durationMinutes || 0 : 0), 0);
   const tasksCompleted = tasks.filter((t) => t.isCompleted).length;
   const tasksTotal = tasks.length;
   const completionRate = tasksTotal > 0 ? Math.round((tasksCompleted / tasksTotal) * 100) : 0;
-
-  let totalSprintMinutes = 0;
-  for (const log of logs) {
-    if (log.sprintStart && log.sprintEnd) {
-      // handles overnight sprints (e.g. 21:00 -> 06:00) via midnight wrap
-      totalSprintMinutes += computeDurationMinutes(log.sprintStart, log.sprintEnd);
-    }
-  }
-  const sprintUtilization = totalSprintMinutes > 0 ? Math.round((totalMinutes / totalSprintMinutes) * 100) : 0;
 
   const categoryMap = new Map<string, { categoryId: string; code: string; color: string; minutes: number }>();
   for (const t of tasks) {
@@ -53,10 +46,10 @@ export async function getAnalyticsSummary(userId: string, from: string, to: stri
 
   return {
     totalMinutes,
+    threeStarMinutes,
     tasksCompleted,
     tasksTotal,
     completionRate,
-    sprintUtilization,
     categoryBreakdown: Array.from(categoryMap.values()),
   };
 }
@@ -102,74 +95,6 @@ export async function getDailyBreakdown(userId: string, from: string, to: string
   }
 
   return { days };
-}
-
-export async function getCategoryTrends(userId: string, from: string, to: string) {
-  const userCategories = await db
-    .select({ id: categories.id, code: categories.code, color: categories.color })
-    .from(categories)
-    .where(eq(categories.userId, userId));
-
-  const trends = [];
-  for (const cat of userCategories) {
-    const dataPoints = await db
-      .select({
-        date: dailyLogs.logDate,
-        minutes: sql<number>`COALESCE(SUM(${taskEntries.durationMinutes}), 0)`,
-      })
-      .from(taskEntries)
-      .innerJoin(dailyLogs, eq(taskEntries.dailyLogId, dailyLogs.id))
-      .where(
-        and(
-          eq(taskEntries.userId, userId),
-          eq(taskEntries.categoryId, cat.id),
-          gte(dailyLogs.logDate, from),
-          lte(dailyLogs.logDate, to)
-        )
-      )
-      .groupBy(dailyLogs.logDate)
-      .orderBy(dailyLogs.logDate);
-
-    if (dataPoints.length > 0) {
-      trends.push({
-        categoryId: cat.id,
-        code: cat.code,
-        color: cat.color,
-        dataPoints: dataPoints.map((dp) => ({ date: dp.date, minutes: Number(dp.minutes) })),
-      });
-    }
-  }
-
-  return { trends };
-}
-
-export async function getHourlyDistribution(userId: string, from: string, to: string) {
-  const result = await db
-    .select({
-      hour: sql<number>`EXTRACT(HOUR FROM ${taskEntries.timeStart}::time)`,
-      totalMinutes: sql<number>`COALESCE(SUM(${taskEntries.durationMinutes}), 0)`,
-      taskCount: sql<number>`COUNT(*)`,
-    })
-    .from(taskEntries)
-    .innerJoin(dailyLogs, eq(taskEntries.dailyLogId, dailyLogs.id))
-    .where(
-      and(
-        eq(taskEntries.userId, userId),
-        gte(dailyLogs.logDate, from),
-        lte(dailyLogs.logDate, to),
-        sql`${taskEntries.timeStart} IS NOT NULL`
-      )
-    )
-    .groupBy(sql`EXTRACT(HOUR FROM ${taskEntries.timeStart}::time)`)
-    .orderBy(sql`EXTRACT(HOUR FROM ${taskEntries.timeStart}::time)`);
-
-  return {
-    hours: result.map((r) => ({
-      hour: Number(r.hour),
-      totalMinutes: Number(r.totalMinutes),
-      taskCount: Number(r.taskCount),
-    })),
-  };
 }
 
 export async function getStreaks(userId: string) {
@@ -263,7 +188,7 @@ async function getMinutesPerDate(userId: string, from: string, to: string) {
 }
 
 /** task counts + minutes grouped by starRating x isCompleted, excluding rolled-over copies (rules 8, 10, 11) */
-async function getStarStats(userId: string, from: string, to: string) {
+export async function getStarStats(userId: string, from: string, to: string) {
   const rows = await db
     .select({
       starRating: taskEntries.starRating,
@@ -417,25 +342,6 @@ export async function getInsights(userId: string, from: string, to: string) {
     if (zeroDays > 0) insights.push({ id: "zero-days", severity: zeroDays >= 3 ? "warn" : "info", text: `${zeroDays} day${zeroDays > 1 ? "s" : ""} with nothing logged in this period` });
   }
 
-  // 7. sprint adherence trend — 3 consecutive weekly declines (trailing 21 days)
-  {
-    const today = new Date();
-    const t21 = new Date(today.getTime() - 20 * 86400000);
-    const adh = await getSprintAdherence(userId, t21.toISOString().slice(0, 10), today.toISOString().slice(0, 10));
-    const weeks: number[][] = [[], [], []];
-    for (const d of adh.days) {
-      if (d.sprintMinutes <= 0) continue;
-      const age = Math.floor((today.getTime() - new Date(d.date + "T00:00:00Z").getTime()) / 86400000);
-      const w = Math.min(2, Math.floor(age / 7)); // 0 = this week, 2 = oldest
-      weeks[w].push(d.adherencePercent);
-    }
-    const avg = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
-    const [w0, w1, w2] = [avg(weeks[0]), avg(weeks[1]), avg(weeks[2])];
-    if (w0 !== null && w1 !== null && w2 !== null && w0 < w1 && w1 < w2) {
-      insights.push({ id: "sprint-trend", severity: "warn", text: `Sprint adherence declining 3 weeks straight: ${pp(w2)}% -> ${pp(w1)}% -> ${pp(w0)}%` });
-    }
-  }
-
   // 8. completion rate delta (rolled-over copies excluded)
   if (hasPrev && starPrev.totalCount > 0 && starCur.totalCount > 0) {
     const curRate = (starCur.completedCount / starCur.totalCount) * 100;
@@ -514,40 +420,6 @@ export async function getInsights(userId: string, from: string, to: string) {
   insights.sort((a, b) => order[a.severity] - order[b.severity]);
 
   return { lowData: false, insights, comparison };
-}
-
-export async function getSprintAdherence(userId: string, from: string, to: string) {
-  const logs = await db
-    .select()
-    .from(dailyLogs)
-    .where(and(eq(dailyLogs.userId, userId), gte(dailyLogs.logDate, from), lte(dailyLogs.logDate, to)))
-    .orderBy(dailyLogs.logDate);
-
-  const days = [];
-  for (const log of logs) {
-    let sprintMinutes = 0;
-    if (log.sprintStart && log.sprintEnd) {
-      // handles overnight sprints (e.g. 21:00 -> 06:00) via midnight wrap
-      sprintMinutes = computeDurationMinutes(log.sprintStart, log.sprintEnd);
-    }
-
-    const tasks = await db
-      .select({ durationMinutes: taskEntries.durationMinutes })
-      .from(taskEntries)
-      .where(eq(taskEntries.dailyLogId, log.id));
-
-    const actualMinutes = tasks.reduce((s, t) => s + (t.durationMinutes || 0), 0);
-    const adherencePercent = sprintMinutes > 0 ? Math.round((actualMinutes / sprintMinutes) * 100) : 0;
-
-    days.push({
-      date: log.logDate,
-      sprintMinutes,
-      actualMinutes,
-      adherencePercent,
-    });
-  }
-
-  return { days };
 }
 
 // ---------------------------------------------------------------------------
@@ -649,4 +521,138 @@ export async function getTodayFocus(userId: string, date: string) {
       totalMinutes: weekSummary.totalMinutes,
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// New analytics surfaces (Round 2): leverage trend, category momentum, scorecard
+// ---------------------------------------------------------------------------
+
+/** Monday-anchored ISO week start for a YYYY-MM-DD date */
+function isoWeekStart(dateStr: string) {
+  const d = new Date(dateStr + "T00:00:00Z");
+  const isoDow = d.getUTCDay() === 0 ? 7 : d.getUTCDay();
+  return new Date(d.getTime() - (isoDow - 1) * 86400000).toISOString().slice(0, 10);
+}
+
+/** weekly 3-star share over the range — one query, bucketed by ISO week. Rolled-over copies excluded (matches getStarStats). */
+export async function getLeverageTrend(userId: string, from: string, to: string) {
+  const rows = await db
+    .select({
+      logDate: dailyLogs.logDate,
+      starRating: taskEntries.starRating,
+      durationMinutes: taskEntries.durationMinutes,
+    })
+    .from(taskEntries)
+    .innerJoin(dailyLogs, eq(taskEntries.dailyLogId, dailyLogs.id))
+    .where(
+      and(
+        eq(taskEntries.userId, userId),
+        gte(dailyLogs.logDate, from),
+        lte(dailyLogs.logDate, to),
+        eq(taskEntries.isRolledOver, false)
+      )
+    );
+
+  const buckets = new Map<string, { totalMinutes: number; threeStarMinutes: number }>();
+  for (const r of rows) {
+    const weekStart = isoWeekStart(r.logDate);
+    const b = buckets.get(weekStart) ?? { totalMinutes: 0, threeStarMinutes: 0 };
+    const min = r.durationMinutes || 0;
+    b.totalMinutes += min;
+    if (r.starRating === 3) b.threeStarMinutes += min;
+    buckets.set(weekStart, b);
+  }
+
+  const weeks = Array.from(buckets.entries())
+    .map(([weekStart, b]) => ({
+      weekStart,
+      totalMinutes: b.totalMinutes,
+      threeStarMinutes: b.threeStarMinutes,
+      sharePct: b.totalMinutes > 0 ? Math.round((b.threeStarMinutes / b.totalMinutes) * 100) : 0,
+    }))
+    .sort((a, b) => a.weekStart.localeCompare(b.weekStart));
+
+  return { weeks };
+}
+
+/** per-category minutes delta vs the previous equal-length period, sorted by |delta| */
+export async function getAnalyticsMomentum(userId: string, from: string, to: string) {
+  const prev = getPreviousPeriod(from, to);
+  const [cur, prevSummary] = await Promise.all([
+    getAnalyticsSummary(userId, from, to),
+    getAnalyticsSummary(userId, prev.from, prev.to),
+  ]);
+
+  const prevByCat = new Map(prevSummary.categoryBreakdown.map((c) => [c.categoryId, c.minutes]));
+  const merged = new Map<
+    string,
+    { categoryId: string; code: string; color: string; curMinutes: number; prevMinutes: number }
+  >();
+  for (const c of cur.categoryBreakdown) {
+    merged.set(c.categoryId, {
+      categoryId: c.categoryId,
+      code: c.code,
+      color: c.color,
+      curMinutes: c.minutes,
+      prevMinutes: prevByCat.get(c.categoryId) ?? 0,
+    });
+  }
+  for (const c of prevSummary.categoryBreakdown) {
+    if (!merged.has(c.categoryId)) {
+      merged.set(c.categoryId, {
+        categoryId: c.categoryId,
+        code: c.code,
+        color: c.color,
+        curMinutes: 0,
+        prevMinutes: c.minutes,
+      });
+    }
+  }
+
+  const items = Array.from(merged.values())
+    .map((i) => ({ ...i, deltaMinutes: i.curMinutes - i.prevMinutes }))
+    .sort((a, b) => Math.abs(b.deltaMinutes) - Math.abs(a.deltaMinutes));
+
+  return { items };
+}
+
+/** this-week-so-far vs last-week scoreboard (range-independent; PKT-anchored) */
+export async function getWeeklyScorecard(userId: string) {
+  // ponytail: PKT (UTC+5) offset hardcoded — single-user app, user lives in PKT
+  const nowPkt = new Date(Date.now() + 5 * 3600e3);
+  const today = nowPkt.toISOString().slice(0, 10);
+  const isoDow = nowPkt.getUTCDay() === 0 ? 7 : nowPkt.getUTCDay();
+  const thisMonD = new Date(nowPkt.getTime() - (isoDow - 1) * 86400000);
+  const thisMon = thisMonD.toISOString().slice(0, 10);
+  const lastSunD = new Date(thisMonD.getTime() - 86400000);
+  const lastSun = lastSunD.toISOString().slice(0, 10);
+  const lastMon = new Date(lastSunD.getTime() - 6 * 86400000).toISOString().slice(0, 10);
+
+  const build = async (windowFrom: string, windowTo: string) => {
+    const [summary, stars, breakdown] = await Promise.all([
+      getAnalyticsSummary(userId, windowFrom, windowTo),
+      getStarStats(userId, windowFrom, windowTo),
+      getDailyBreakdown(userId, windowFrom, windowTo),
+    ]);
+    const deepWorkPct =
+      stars.totalMinutes > 0 ? Math.round((stars.threeStarMinutes / stars.totalMinutes) * 100) : 0;
+    const best = breakdown.days.reduce<{ date: string; totalMinutes: number } | null>(
+      (acc, d) => (!acc || d.totalMinutes > acc.totalMinutes ? { date: d.date, totalMinutes: d.totalMinutes } : acc),
+      null
+    );
+    return {
+      totalMinutes: summary.totalMinutes,
+      tasksCompleted: summary.tasksCompleted,
+      tasksTotal: summary.tasksTotal,
+      completionRate: summary.completionRate,
+      deepWorkPct,
+      bestDay: best && best.totalMinutes > 0 ? best : null,
+    };
+  };
+
+  const [thisWeek, lastWeek] = await Promise.all([
+    build(thisMon, today),
+    build(lastMon, lastSun),
+  ]);
+  return { thisWeek, lastWeek };
 }

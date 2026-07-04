@@ -82,10 +82,10 @@ export type ColumnMapping = {
 
 export type AnalyticsSummary = {
   totalMinutes: number;
+  threeStarMinutes: number;
   tasksCompleted: number;
   tasksTotal: number;
   completionRate: number;
-  sprintUtilization: number;
   categoryBreakdown: {
     categoryId: string;
     code: string;
@@ -109,30 +109,10 @@ export type DailyBreakdown = {
   }[];
 };
 
-export type CategoryTrend = {
-  categoryId: string;
-  code: string;
-  color: string;
-  dataPoints: { date: string; minutes: number }[];
-};
-
-export type HourlyDistribution = {
-  hours: { hour: number; totalMinutes: number; taskCount: number }[];
-};
-
 export type StreakData = {
   currentStreak: number;
   bestStreak: number;
   lastActiveDate: string | null;
-};
-
-export type SprintAdherence = {
-  days: {
-    date: string;
-    sprintMinutes: number;
-    actualMinutes: number;
-    adherencePercent: number;
-  }[];
 };
 
 export type Insight = {
@@ -181,6 +161,50 @@ export type TodayFocus = {
   }[];
   doneToday: { tasksCompleted: number; tasksTotal: number; totalMinutes: number };
   doneWeek: { tasksCompleted: number; tasksTotal: number; totalMinutes: number };
+};
+
+export type LeverageTrend = {
+  weeks: {
+    weekStart: string;
+    totalMinutes: number;
+    threeStarMinutes: number;
+    sharePct: number;
+  }[];
+};
+
+export type MomentumItem = {
+  categoryId: string;
+  code: string;
+  color: string;
+  curMinutes: number;
+  prevMinutes: number;
+  deltaMinutes: number;
+};
+
+export type Momentum = {
+  items: MomentumItem[];
+};
+
+export type ScorecardWeek = {
+  totalMinutes: number;
+  tasksCompleted: number;
+  tasksTotal: number;
+  completionRate: number;
+  deepWorkPct: number;
+  bestDay: { date: string; totalMinutes: number } | null;
+};
+
+export type WeeklyScorecard = {
+  thisWeek: ScorecardWeek;
+  lastWeek: ScorecardWeek;
+};
+
+export type AiAnalysis = {
+  headline: string;
+  whereTimeWent: string;
+  whatsWorking: string[];
+  whatToChange: string[];
+  oneThingThisWeek: string;
 };
 
 export type ApiError = {
