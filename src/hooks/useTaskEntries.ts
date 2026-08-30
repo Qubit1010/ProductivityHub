@@ -27,6 +27,7 @@ export function useCreateTaskEntry() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["taskEntries"] });
       qc.invalidateQueries({ queryKey: ["analytics"] });
+      qc.invalidateQueries({ queryKey: ["backlogItems"] });
     },
   });
 }

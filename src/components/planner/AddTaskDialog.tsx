@@ -93,6 +93,7 @@ export function AddTaskDialog({
           starRating,
           timeStart: timeStart || undefined,
           timeEnd: timeEnd || undefined,
+          logToBacklog: true,
         },
         {
           onSuccess: () => {

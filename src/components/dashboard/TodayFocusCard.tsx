@@ -53,6 +53,7 @@ function QuickAddRow({
         categoryId,
         title: title.trim(),
         starRating,
+        logToBacklog: true,
       });
       setTitle("");
       onAdded();

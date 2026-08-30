@@ -91,6 +91,7 @@ export const api = {
       timeEnd?: string;
       backlogItemId?: string;
       isRolledOver?: boolean;
+      logToBacklog?: boolean;
     }) =>
       fetchApi<{ taskEntry: TaskEntry }>("/api/task-entries", {
         method: "POST",

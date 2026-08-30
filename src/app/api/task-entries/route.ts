@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/lib/auth/config";
 import { db } from "@/lib/db";
-import { taskEntries, dailyLogs, categories } from "@/lib/db/schema";
+import { taskEntries, dailyLogs, categories, backlogItems } from "@/lib/db/schema";
 import { eq, and, gte, lte, asc, inArray } from "drizzle-orm";
 import { createTaskEntrySchema } from "@/lib/validators/task-entry";
 import { computeDurationMinutes } from "@/lib/utils/csv-parser";
@@ -70,11 +70,30 @@ export async function POST(req: NextRequest) {
       durationMinutes = computeDurationMinutes(parsed.data.timeStart, parsed.data.timeEnd);
     }
 
-    const [taskEntry] = await db.insert(taskEntries).values({
-      ...parsed.data,
-      userId,
-      durationMinutes,
-    }).returning();
+    const { logToBacklog, ...taskData } = parsed.data;
+
+    const taskEntry = await db.transaction(async (tx) => {
+      const [inserted] = await tx.insert(taskEntries).values({
+        ...taskData,
+        userId,
+        durationMinutes,
+      }).returning();
+
+      // opt-in: log new today-tasks into the Active backlog under their category
+      if (logToBacklog && !inserted.backlogItemId) {
+        const [logged] = await tx.insert(backlogItems).values({
+          userId,
+          categoryId: inserted.categoryId,
+          title: inserted.title,
+          starRating: inserted.starRating,
+          isActive: true,
+        }).returning();
+        await tx.update(taskEntries).set({ backlogItemId: logged.id }).where(eq(taskEntries.id, inserted.id));
+        inserted.backlogItemId = logged.id;
+      }
+
+      return inserted;
+    });
 
     return NextResponse.json({ taskEntry }, { status: 201 });
   } catch {
