@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/lib/auth/config";
 import { db } from "@/lib/db";
-import { taskEntries } from "@/lib/db/schema";
+import { taskEntries, backlogItems } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { toggleCompleteSchema } from "@/lib/validators/task-entry";
 
@@ -16,11 +16,45 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const parsed = toggleCompleteSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: "Validation error" }, { status: 400 });
 
-    const [entry] = await db.update(taskEntries).set({
-      isCompleted: parsed.data.isCompleted,
-      completedAt: parsed.data.isCompleted ? new Date() : null,
-      updatedAt: new Date(),
-    }).where(and(eq(taskEntries.id, params.id), eq(taskEntries.userId, userId))).returning();
+    const entry = await db.transaction(async (tx) => {
+      const [updated] = await tx.update(taskEntries).set({
+        isCompleted: parsed.data.isCompleted,
+        completedAt: parsed.data.isCompleted ? new Date() : null,
+        updatedAt: new Date(),
+      }).where(and(eq(taskEntries.id, params.id), eq(taskEntries.userId, userId))).returning();
+
+      if (!updated) return updated;
+
+      // keep the backlog completed-today view in sync with today-tab completions
+      if (parsed.data.isCompleted) {
+        if (updated.backlogItemId) {
+          await tx.update(backlogItems).set({
+            isActive: false,
+            completedAt: new Date(),
+            updatedAt: new Date(),
+          }).where(and(eq(backlogItems.id, updated.backlogItemId), eq(backlogItems.userId, userId)));
+        } else {
+          const [logged] = await tx.insert(backlogItems).values({
+            userId,
+            categoryId: updated.categoryId,
+            title: updated.title,
+            starRating: updated.starRating,
+            isActive: false,
+            completedAt: new Date(),
+          }).returning();
+          await tx.update(taskEntries).set({ backlogItemId: logged.id }).where(eq(taskEntries.id, updated.id));
+          updated.backlogItemId = logged.id;
+        }
+      } else if (updated.backlogItemId) {
+        await tx.update(backlogItems).set({
+          isActive: true,
+          completedAt: null,
+          updatedAt: new Date(),
+        }).where(and(eq(backlogItems.id, updated.backlogItemId), eq(backlogItems.userId, userId)));
+      }
+
+      return updated;
+    });
 
     if (!entry) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ taskEntry: entry });

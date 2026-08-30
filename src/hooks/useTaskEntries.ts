@@ -62,6 +62,7 @@ export function useToggleTaskComplete() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["taskEntries"] });
       qc.invalidateQueries({ queryKey: ["analytics"] });
+      qc.invalidateQueries({ queryKey: ["backlogItems"] });
     },
   });
 }
