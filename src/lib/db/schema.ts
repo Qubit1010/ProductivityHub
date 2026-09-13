@@ -82,7 +82,9 @@ export const taskEntries = pgTable(
     categoryId: uuid("category_id")
       .references(() => categories.id)
       .notNull(),
-    backlogItemId: uuid("backlog_item_id").references(() => backlogItems.id),
+    backlogItemId: uuid("backlog_item_id").references(() => backlogItems.id, {
+      onDelete: "set null",
+    }),
     title: varchar("title", { length: 255 }).notNull(),
     starRating: smallint("star_rating").notNull().default(1),
     tag: varchar("tag", { length: 10 }),
