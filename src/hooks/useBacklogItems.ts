@@ -40,7 +40,11 @@ export function useDeleteBacklogItem() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: api.backlogItems.delete,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["backlogItems"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["backlogItems"] });
+      qc.invalidateQueries({ queryKey: ["taskEntries"] });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
+    },
   });
 }
 

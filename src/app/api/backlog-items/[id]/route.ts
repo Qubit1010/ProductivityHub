@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/lib/auth/config";
 import { db } from "@/lib/db";
-import { backlogItems } from "@/lib/db/schema";
+import { backlogItems, taskEntries } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { updateBacklogItemSchema } from "@/lib/validators/backlog-item";
 
@@ -53,7 +53,13 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const userId = (session.user as { id: string }).id;
 
-    const [deleted] = await db.delete(backlogItems).where(and(eq(backlogItems.id, params.id), eq(backlogItems.userId, userId))).returning();
+    const deleted = await db.transaction(async (tx) => {
+      // delete linked day-entries first so removing a backlog card removes
+      // it from Today/Week too, everywhere it was scheduled
+      await tx.delete(taskEntries).where(and(eq(taskEntries.backlogItemId, params.id), eq(taskEntries.userId, userId)));
+      const [deleted] = await tx.delete(backlogItems).where(and(eq(backlogItems.id, params.id), eq(backlogItems.userId, userId))).returning();
+      return deleted;
+    });
     if (!deleted) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch {

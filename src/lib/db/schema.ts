@@ -82,6 +82,9 @@ export const taskEntries = pgTable(
     categoryId: uuid("category_id")
       .references(() => categories.id)
       .notNull(),
+    // ON DELETE SET NULL is a safety-net default; the app deletes linked
+    // task entries explicitly before deleting a backlog item (see
+    // backlog-items/[id]/route.ts) so this path shouldn't fire in normal use
     backlogItemId: uuid("backlog_item_id").references(() => backlogItems.id, {
       onDelete: "set null",
     }),

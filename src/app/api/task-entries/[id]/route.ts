@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/lib/auth/config";
 import { db } from "@/lib/db";
-import { taskEntries } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { taskEntries, backlogItems } from "@/lib/db/schema";
+import { eq, and, ne } from "drizzle-orm";
 import { updateTaskEntrySchema } from "@/lib/validators/task-entry";
 import { computeDurationMinutes } from "@/lib/utils/csv-parser";
 
@@ -59,7 +59,26 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const userId = (session.user as { id: string }).id;
 
-    const [deleted] = await db.delete(taskEntries).where(and(eq(taskEntries.id, params.id), eq(taskEntries.userId, userId))).returning();
+    const deleted = await db.transaction(async (tx) => {
+      const [deleted] = await tx.delete(taskEntries).where(and(eq(taskEntries.id, params.id), eq(taskEntries.userId, userId))).returning();
+      if (!deleted) return deleted;
+
+      // a backlog card with no other day-entries left is deleted too, so
+      // deleting either side of the link removes both (see schema.ts:85
+      // for the reverse: deleting the backlog card cascades to entries)
+      if (deleted.backlogItemId) {
+        const [otherEntry] = await tx
+          .select({ id: taskEntries.id })
+          .from(taskEntries)
+          .where(and(eq(taskEntries.backlogItemId, deleted.backlogItemId), ne(taskEntries.id, deleted.id)))
+          .limit(1);
+        if (!otherEntry) {
+          await tx.delete(backlogItems).where(and(eq(backlogItems.id, deleted.backlogItemId), eq(backlogItems.userId, userId)));
+        }
+      }
+
+      return deleted;
+    });
     if (!deleted) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch {
